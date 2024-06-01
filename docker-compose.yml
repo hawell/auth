@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:latest
+    restart: on-failure
+    environment:
+      MYSQL_DATABASE: 'auth'
+      MYSQL_USER: 'admin'
+      MYSQL_PASSWORD: 'admin'
+      MYSQL_ROOT_PASSWORD: 'root'
+    ports:
+      - "3306:3306"
+    expose:
+      - 3306
+    volumes:
+      - db:/var/lib/mysql
+      - ./scripts/schema-final.sql:/docker-entrypoint-initdb.d/1.sql
+    networks:
+      - app-network
+
+volumes:
+  db:
+    driver: local
+  redis:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge

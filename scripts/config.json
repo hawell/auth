@@ -1,0 +1,37 @@
+{
+  "server": {
+    "bind_address": "0.0.0.0:3002",
+    "max_body_size": 1000000,
+    "web_server": "auth.chordsoft.org",
+    "html_templates": "./templates/*.tmpl",
+    "recaptcha": {
+      "secret_key": "SECRET_KEY",
+      "server": "https://www.google.com/recaptcha/api/siteverify",
+      "bypass": true
+    }
+  },
+  "mailer": {
+    "address": "smtp.gmail.com:465",
+    "from_email": "mail.zone42@gmail.com",
+    "web_server": "www.zone-42.com",
+    "html_templates": "./templates/*.tmpl",
+    "auth": {
+      "username": "mail.zone42@gmail.com",
+      "password": "tieivmwswpajdeba"
+    }
+  },
+  "database": {
+    "connection_string": "USER:PASSWORD@tcp(127.0.0.1:3306)/auth"
+  },
+  "logger": {
+    "access": {
+      "level": "INFO",
+      "destination": "stdout"
+    },
+    "event": {
+      "level": "INFO",
+      "destination": "stderr"
+    }
+
+  }
+}
