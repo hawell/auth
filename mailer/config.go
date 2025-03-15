@@ -17,9 +17,9 @@ type Auth struct {
 func DefaultConfig() Config {
 	return Config{
 		Address:       "127.0.0.1:25",
-		FromEmail:     "noreply@z42.com",
-		WebServer:     "www.z42.com",
-		ApiServer:     "api.z42.com",
+		FromEmail:     "noreply@chordsoft.org",
+		WebServer:     "www.chordsoft.org",
+		ApiServer:     "auth.chordsoft.org",
 		HtmlTemplates: "./templates/*.tmpl",
 	}
 }

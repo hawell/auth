@@ -31,24 +31,9 @@ var (
 			Bypass:    false,
 		},
 	}
-	connectionStr = "admin:admin@tcp(127.0.0.1:3306)/auth"
-	db            *database.Database
-	client        *http.Client
-	tokens        map[database.ObjectId]string
-	users         = []database.User{
-		{
-			Email:    "apiUser1",
-			Password: "apiUser1",
-		},
-		{
-			Email:    "apiUser2",
-			Password: "apiUser2",
-		},
-		{
-			Email:    "apiUser3",
-			Password: "apiUser3",
-		},
-	}
+	connectionStr   = "admin:admin@tcp(127.0.0.1:3306)/auth"
+	db              *database.Database
+	client          *http.Client
 	recaptchaServer = recaptcha.NewMockServer("127.0.0.1:9798")
 )
 
@@ -56,11 +41,7 @@ func TestSignup(t *testing.T) {
 	initialize(t)
 
 	// add new user
-	body := `{"email": "user1@example.com", "password": "password", "recaptcha_token": "123456"}`
-	path := "/auth/signup"
-	resp := execRequest("", http.MethodPost, path, body)
-	Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-	err := resp.Body.Close()
+	err := signup("user1@example.com", "password")
 	Expect(err).To(BeNil())
 
 	// check new user status is pending
@@ -68,22 +49,17 @@ func TestSignup(t *testing.T) {
 	Expect(err).To(BeNil())
 	Expect(user.Email).To(Equal("user1@example.com"))
 	Expect(user.Status).To(Equal(database.UserStatusPending))
-
 }
 
 func TestVerify(t *testing.T) {
 	initialize(t)
 
-	_, code, err := db.AddUser(database.NewUser{
-		Email:    "user2@example.com",
-		Password: "12345678",
-		Status:   database.UserStatusPending,
-	})
+	_, code, err := addUser("user2@example.com", "12345678", database.UserStatusPending)
 	Expect(err).To(BeNil())
 
 	// verify user
 	path := "/auth/verify?code=" + code
-	resp := execRequest(users[0].Id, http.MethodPost, path, "")
+	resp := execRequest(http.MethodPost, path, "", "")
 	Expect(resp.StatusCode).To(Equal(http.StatusOK))
 	_, err = io.ReadAll(resp.Body)
 	// check user status is active
@@ -97,10 +73,12 @@ func TestVerify(t *testing.T) {
 
 func TestRecover(t *testing.T) {
 	initialize(t)
+	id, _, err := addUser("user1@email.com", "12345", database.UserStatusActive)
+	Expect(err).To(BeNil())
 
 	path := "/auth/recover"
-	body := fmt.Sprintf(`{"email": "%s", "recaptcha_token": "123456"}`, users[0].Email)
-	resp := execRequest("", http.MethodPost, path, body)
+	body := fmt.Sprintf(`{"email": "%s", "recaptcha_token": "123456"}`, "user1@email.com")
+	resp := execRequest(http.MethodPost, path, body, "")
 	b, err := io.ReadAll(resp.Body)
 	Expect(err).To(BeNil())
 	Expect(resp.StatusCode).To(Equal(http.StatusOK), string(b))
@@ -108,11 +86,11 @@ func TestRecover(t *testing.T) {
 	Expect(err).To(BeNil())
 
 	// should have a verification of type recover
-	_, err = db.GetVerification(users[0].Id, database.VerificationTypeRecover)
+	_, err = db.GetVerification(id, database.VerificationTypeRecover)
 	Expect(err).To(BeNil())
 
 	// duplicate request
-	resp = execRequest("", http.MethodPost, path, body)
+	resp = execRequest(http.MethodPost, path, body, "")
 	Expect(resp.StatusCode).To(Equal(http.StatusOK))
 	_, err = io.ReadAll(resp.Body)
 	Expect(err).To(BeNil())
@@ -120,36 +98,62 @@ func TestRecover(t *testing.T) {
 	Expect(err).To(BeNil())
 
 	// should overwrite existing code
-	_, err = db.GetVerification(users[0].Id, database.VerificationTypeRecover)
+	_, err = db.GetVerification(id, database.VerificationTypeRecover)
 	Expect(err).To(BeNil())
 }
 
 func TestReset(t *testing.T) {
 	initialize(t)
+	id, _, err := addUser("user1@email.com", "12345", database.UserStatusActive)
+	Expect(err).To(BeNil())
 
 	path := "/auth/recover"
-	body := fmt.Sprintf(`{"email": "%s", "recaptcha_token": "123456"}`, users[0].Email)
-	resp := execRequest("", http.MethodPost, path, body)
+	body := fmt.Sprintf(`{"email": "%s", "recaptcha_token": "123456"}`, "user1@email.com")
+	resp := execRequest(http.MethodPost, path, body, "")
 	b, err := io.ReadAll(resp.Body)
 	Expect(err).To(BeNil())
 	Expect(resp.StatusCode).To(Equal(http.StatusOK), string(b))
 	err = resp.Body.Close()
 	Expect(err).To(BeNil())
 
-	code, err := db.GetVerification(users[0].Id, database.VerificationTypeRecover)
+	code, err := db.GetVerification(id, database.VerificationTypeRecover)
 	Expect(err).To(BeNil())
 
 	path = "/auth/reset"
 	body = fmt.Sprintf(`{"password": "password2", "code": "%s", "recaptcha_token": "123456"}`, code)
-	resp = execRequest(users[0].Id, http.MethodPatch, path, body)
+	resp = execRequest(http.MethodPatch, path, body, "")
 	Expect(resp.StatusCode).To(Equal(http.StatusAccepted))
 	_, err = io.ReadAll(resp.Body)
 	Expect(err).To(BeNil())
 	err = resp.Body.Close()
 	Expect(err).To(BeNil())
 
-	_, err = login(users[0].Email, "password2")
+	_, err = login("user1@email.com", "password2")
 	Expect(err).To(BeNil())
+}
+
+func TestCheck(t *testing.T) {
+	initialize(t)
+	_, _, err := addUser("user1@email.com", "12345", database.UserStatusActive)
+	Expect(err).To(BeNil())
+
+	path := "/auth/check"
+	resp := execRequest(http.MethodGet, path, "", "")
+	Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+
+	token, err := login("user1@email.com", "12345")
+	Expect(err).To(BeNil())
+
+	path = "/auth/check"
+	resp = execRequest(http.MethodGet, path, "", token)
+	Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+	err = logout(token)
+	Expect(err).To(BeNil())
+
+	// TODO: re-enable after adding token invalidation to logout
+	// resp = execRequest(http.MethodGet, path, "", token)
+	// Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 }
 
 func TestMain(m *testing.M) {
@@ -201,18 +205,6 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	tokens = make(map[database.ObjectId]string)
-	for i := range users {
-		users[i].Id, _, err = db.AddUser(database.NewUser{Email: users[i].Email, Password: users[i].Email, Status: database.UserStatusActive})
-		if err != nil {
-			panic(err)
-		}
-		token, err := login(users[i].Email, users[i].Password)
-		if err != nil {
-			panic(err)
-		}
-		tokens[users[i].Id] = token
-	}
 	m.Run()
 	err = s.Shutdown()
 	if err != nil {
@@ -260,21 +252,54 @@ func login(user string, password string) (string, error) {
 	return loginResp["token"].(string), nil
 }
 
+func logout(token string) error {
+	resp := execRequest(http.MethodPost, "/auth/logout", "", token)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("status: %d", resp.StatusCode)
+	}
+	if err := resp.Body.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func initialize(t *testing.T) {
 	RegisterTestingT(t)
-	err := db.Clear(false)
+	err := db.Clear(true)
 	Expect(err).To(BeNil())
 }
 
-func execRequest(userId database.ObjectId, method string, path string, body string) *http.Response {
+func addUser(username string, password string, status database.UserStatus) (database.ObjectId, string, error) {
+	id, code, err := db.AddUser(database.NewUser{
+		Email:    username,
+		Password: password,
+		Status:   status,
+	})
+	return id, code, err
+}
+
+func signup(username string, password string) error {
+	body := fmt.Sprintf(`{"email": "%s", "password": "%s", "recaptcha_token": "123456"}`, username, password)
+	path := "/auth/signup"
+	resp := execRequest(http.MethodPost, path, body, "")
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("status: %d", resp.StatusCode)
+	}
+	if err := resp.Body.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func execRequest(method string, path string, body string, token string) *http.Response {
 	url := generateURL(path)
 	reqBody := strings.NewReader(body)
 	req, err := http.NewRequest(method, url, reqBody)
 	Expect(err).To(BeNil())
 	req.Close = true
 	req.Header.Add("Content-Type", "application/json")
-	if userId != "" {
-		req.Header.Add("Authorization", "Bearer "+tokens[userId])
+	if token != "" {
+		req.Header.Add("Authorization", "Bearer "+token)
 	}
 	resp, err := client.Do(req)
 	Expect(err).To(BeNil())

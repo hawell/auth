@@ -1,8 +1,8 @@
 {
   "server": {
-    "bind_address": "0.0.0.0:3002",
+    "bind_address": "0.0.0.0:3000",
     "max_body_size": 1000000,
-    "web_server": "auth.chordsoft.org",
+    "web_server": "chordsoft.org",
     "html_templates": "./templates/*.tmpl",
     "recaptcha": {
       "secret_key": "SECRET_KEY",
@@ -13,15 +13,16 @@
   "mailer": {
     "address": "smtp.gmail.com:465",
     "from_email": "mail.zone42@gmail.com",
-    "web_server": "www.zone-42.com",
+    "web_server": "chordsoft.org",
+    "api_server": "chordsoft.org",
     "html_templates": "./templates/*.tmpl",
     "auth": {
-      "username": "mail.zone42@gmail.com",
-      "password": "tieivmwswpajdeba"
+      "username": "USER_NAME",
+      "password": "PASSWORD"
     }
   },
   "database": {
-    "connection_string": "USER:PASSWORD@tcp(127.0.0.1:3306)/auth"
+    "connection_string": "admin:admin@tcp(127.0.0.1:3306)/auth"
   },
   "logger": {
     "access": {

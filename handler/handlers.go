@@ -130,6 +130,7 @@ func (h *Handler) RegisterHandlers(group *gin.RouterGroup) {
 	group.POST("/login", h.recaptchaHandler.MiddlewareFunc(), h.jwtMiddleWare.LoginHandler)
 	group.POST("/logout", h.jwtMiddleWare.LogoutHandler)
 	group.GET("/refresh_token", h.MiddlewareFunc(), h.jwtMiddleWare.RefreshHandler)
+	group.GET("/check", h.MiddlewareFunc())
 }
 
 func (h *Handler) MiddlewareFunc() gin.HandlerFunc {
